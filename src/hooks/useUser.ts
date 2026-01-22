@@ -6,8 +6,7 @@ import { useMemo } from "react";
 import { useFetch } from "@raycast/utils";
 import { useAuth } from "./useAuth";
 import { User } from "../lib/types";
-
-const API_BASE_URL = "https://api.intra.42.fr/v2";
+import { API_BASE_URL } from "../lib/constants";
 
 export interface UseUserOptions {
   /** Execute the fetch only when this is true */

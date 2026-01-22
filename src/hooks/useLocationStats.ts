@@ -7,8 +7,7 @@ import { useFetch } from "@raycast/utils";
 import { useAuth } from "./useAuth";
 import { LocationStats, DateRange } from "../lib/types";
 import { getDateRange, parseTime, calculateTotalSeconds, formatDuration, sortDatesDescending } from "../lib/utils";
-
-const API_BASE_URL = "https://api.intra.42.fr/v2";
+import { API_BASE_URL } from "../lib/constants";
 
 export interface UseLocationStatsOptions {
   /** Number of days to look back (default: 0 for today only) */

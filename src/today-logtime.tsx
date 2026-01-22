@@ -2,7 +2,7 @@ import { MenuBarExtra, getPreferenceValues, Icon, environment, open, LocalStorag
 import { useEffect, useMemo } from "react";
 import { useUser, useLocationStats } from "./hooks";
 import { Preferences } from "./lib/types";
-import { formatTime, calculateGoalTimes } from "./lib/utils";
+import { formatTime, calculateGoalTimes, formatDateString } from "./lib/utils";
 
 async function triggerConfetti() {
   try {
@@ -65,10 +65,7 @@ export default function Command() {
   });
 
   // 🎉 Confetti celebration logic
-  const todayStr = useMemo(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  }, []);
+  const todayStr = useMemo(() => formatDateString(new Date()), []);
 
   useEffect(() => {
     async function checkAndCelebrate() {
@@ -87,11 +84,12 @@ export default function Command() {
       // Only trigger if last known logtime of the day was below the threshold.
       // If it's a new day, we assume last logtime was 0.
       const lastKnownLogtime = isNewDay ? 0 : state.lastLogtimeSeconds;
-      const shouldTrigger = goalInfo.goalReached && state.lastTriggeredDate !== todayStr && lastKnownLogtime < goalSeconds;
+      const shouldTrigger =
+        goalInfo.goalReached && state.lastTriggeredDate !== todayStr && lastKnownLogtime < goalSeconds;
 
       if (shouldTrigger) {
         await triggerConfetti();
-        console.log("🎉 Daily goal reached! Confetti triggered!");
+        console.log("Confetti triggered!");
         await LocalStorage.setItem(
           "confetti-state",
           JSON.stringify({

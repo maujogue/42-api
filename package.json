@@ -1,46 +1,40 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "42-api",
-  "title": "42 Api",
-  "description": "Calls a selection of endpoints that can help 42 users in their day to day at school",
-  "icon": "extension-icon.png",
-  "author": "stach",
+  "title": "42 Api Tools",
+  "description": "Track your logtime and find peers in 42 school clusters directly from Raycast",
+  "icon": "42.png",
+  "author": "maujogue",
   "categories": [
     "Productivity"
   ],
-  "license": "MIT",
-  "crossExtensions": [
-    "target-extensions-author-name/target-extension-name"
+  "keywords": [
+    "Productivity",
+    "Web"
   ],
+  "license": "MIT",
   "commands": [
     {
       "name": "find-user",
       "title": "Find User",
-      "subtitle": "Shows a user's location",
+      "subtitle": "42 API",
       "description": "This displays the user exact location in the clusters.",
       "mode": "view"
     },
     {
-      "name": "check-logtime",
-      "title": "Check Logtime",
-      "subtitle": "View location stats",
-      "description": "Check the logtime (hours spent) for a 42 user.",
+      "name": "check-logtime-history",
+      "title": "List Logtime History",
+      "subtitle": "42 API",
+      "description": "List the logtime history for a 42 user.",
       "mode": "view"
     },
     {
       "name": "today-logtime",
-      "title": "Today's Logtime",
-      "subtitle": "42",
-      "description": "Display today's logtime in the menu bar",
+      "title": "Compute Today's Logtime",
+      "subtitle": "42 API",
+      "description": "Compute today's logtime for a 42 user.",
       "mode": "menu-bar",
       "interval": "1m"
-    },
-    {
-      "name": "test-command",
-      "title": "Test Command",
-      "subtitle": "42",
-      "description": "Test command",
-      "mode": "no-view"
     }
   ],
   "preferences": [
@@ -48,15 +42,17 @@
       "name": "clientId",
       "title": "42 OAuth Client ID",
       "description": "Your OAuth application Client ID (UID). Get it from https://profile.intra.42.fr/oauth/applications",
-      "type": "textfield",
-      "required": true
+      "type": "password",
+      "required": true,
+      "placeholder": "u-s4t2ud..."
     },
     {
       "name": "clientSecret",
       "title": "42 OAuth Client Secret",
       "description": "Your OAuth application Client Secret. Get it from https://profile.intra.42.fr/oauth/applications",
       "type": "password",
-      "required": true
+      "required": true,
+      "placeholder": "s-s4t2ud..."
     },
     {
       "name": "debugMode",
@@ -72,14 +68,15 @@
       "title": "Your 42 Login",
       "description": "Your 42 username (for menu bar logtime display)",
       "type": "textfield",
-      "required": false
+      "required": true,
+      "placeholder": "maujogue"
     },
     {
       "name": "goalHours",
       "title": "Daily Goal (hours)",
       "description": "The target number of hours to reach before triggering confetti",
       "type": "textfield",
-      "default": "6",
+      "default": "7",
       "required": false
     },
     {
@@ -87,18 +84,18 @@
       "title": "Daily Goal (minutes)",
       "description": "The target number of minutes to reach before triggering confetti",
       "type": "textfield",
-      "default": "39",
+      "default": "0",
       "required": false
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.93.1",
+    "@raycast/api": "^1.103.0",
     "@raycast/utils": "^1.17.0"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^1.0.11",
-    "@types/node": "20.8.10",
-    "@types/react": "18.3.3",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
     "eslint": "^8.57.0",
     "prettier": "^3.3.3",
     "typescript": "^5.4.5"
@@ -110,5 +107,8 @@
     "lint": "ray lint",
     "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
     "publish": "npx @raycast/api@latest publish"
-  }
+  },
+  "platforms": [
+    "macOS"
+  ]
 }

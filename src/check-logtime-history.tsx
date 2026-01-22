@@ -85,7 +85,6 @@ export default function Command() {
         title: "Token Info",
         message: expiresInfo,
       });
-      console.log("Token Info:", tokenInfo);
     } else {
       showToast({
         style: Toast.Style.Failure,

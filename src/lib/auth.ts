@@ -1,4 +1,5 @@
 import { getPreferenceValues, LocalStorage, showToast, Toast } from "@raycast/api";
+import { TOKEN_EXPIRY_BUFFER } from "./constants";
 
 interface AuthPreferences {
   clientId: string;
@@ -24,7 +25,7 @@ export async function getAccessToken(): Promise<string | null> {
 
     // Check if token is expired (with 60 second buffer)
     const expiresAt = tokenData.created_at + tokenData.expires_in * 1000;
-    if (Date.now() >= expiresAt - 60000) {
+    if (Date.now() >= expiresAt - TOKEN_EXPIRY_BUFFER) {
       // Token expired or about to expire, fetch new one
       return await fetchNewToken();
     }

@@ -5,8 +5,7 @@
 
 import { ensureAuthenticated } from "./auth";
 import { User, LocationStats, DateRange } from "./types";
-
-const API_BASE_URL = "https://api.intra.42.fr/v2";
+import { API_BASE_URL } from "./constants";
 
 // =============================================================================
 // TYPES
