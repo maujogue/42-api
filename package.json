@@ -22,17 +22,10 @@
       "mode": "view"
     },
     {
-      "name": "check-logtime-history",
-      "title": "List Logtime History",
-      "subtitle": "42 API",
-      "description": "List the logtime history for a 42 user.",
-      "mode": "view"
-    },
-    {
       "name": "today-logtime",
-      "title": "Compute Today's Logtime",
+      "title": "My Logtime Today",
       "subtitle": "42 API",
-      "description": "Compute today's logtime for a 42 user.",
+      "description": "Compute your logtime for today.",
       "mode": "menu-bar",
       "interval": "1m"
     }

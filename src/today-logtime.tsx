@@ -1,4 +1,4 @@
-import { MenuBarExtra, getPreferenceValues, Icon, environment, open, LocalStorage } from "@raycast/api";
+import { MenuBarExtra, getPreferenceValues, Icon, environment, open, LocalStorage, Color } from "@raycast/api";
 import { useEffect, useMemo } from "react";
 import { useUser, useLocationStats } from "./hooks";
 import { Preferences } from "./lib/types";
@@ -44,21 +44,15 @@ export default function Command() {
   const isLoading = isLoadingUser || isLoadingStats;
 
   // Calculate goal-related values
-  const goalHours = Number(preferences.goalHours) || 6;
-  const goalMinutes = Number(preferences.goalMinutes) || 39;
+  const goalHours = Number(preferences.goalHours);
+  const goalMinutes = Number(preferences.goalMinutes);
 
   const goalInfo = useMemo(() => {
     return calculateGoalTimes(todayLogtimeSeconds, goalHours, goalMinutes);
   }, [todayLogtimeSeconds, goalHours, goalMinutes]);
 
   const displayTime = todayLogtime ? formatTime(todayLogtime) : "0h 0m";
-  const currentTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   const leavingTime = goalInfo.leavingTime.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const arrivedTime = goalInfo.arrivedTime.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -145,7 +139,13 @@ export default function Command() {
 
   // Show today's logtime
   return (
-    <MenuBarExtra icon={Icon.Clock} title={goalInfo.remainingTimeString}>
+    <MenuBarExtra
+      icon={{
+        source: goalInfo.goalReached ? "42@dark.png" : Icon.Clock,
+        tintColor: goalInfo.goalReached ? Color.Green : Color.PrimaryText,
+      }}
+      title={goalInfo.goalReached ? "" : goalInfo.remainingTimeString}
+    >
       <MenuBarExtra.Item title={"Done: " + displayTime} />
       <MenuBarExtra.Section title="Location">
         <MenuBarExtra.Item
@@ -153,12 +153,14 @@ export default function Command() {
           icon={userLocation ? Icon.Pin : Icon.Logout}
         />
       </MenuBarExtra.Section>
-      <MenuBarExtra.Section title="Time">
-        <MenuBarExtra.Item title={"Arrived at: " + arrivedTime} />
-        <MenuBarExtra.Item title={"Current time: " + currentTime} />
-        <MenuBarExtra.Item title={"Remaining time: " + goalInfo.remainingTimeString} />
-        <MenuBarExtra.Item title={"Leaving at: " + leavingTime} />
-      </MenuBarExtra.Section>
+      {!goalInfo.goalReached && (
+        <MenuBarExtra.Section title="Time">
+          <>
+            <MenuBarExtra.Item title={"Remaining time: " + goalInfo.remainingTimeString} />
+            <MenuBarExtra.Item title={"Leaving at: " + leavingTime} />
+          </>
+        </MenuBarExtra.Section>
+      )}
       <MenuBarExtra.Section title="Actions">
         <MenuBarExtra.Item
           title="Refresh"

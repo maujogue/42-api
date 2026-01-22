@@ -135,7 +135,6 @@ export function calculateGoalTimes(currentLogtimeSeconds: number, goalHours: num
   const goalReached = currentLogtimeSeconds >= goalSeconds;
 
   const now = Date.now();
-  const arrivedTime = new Date(now - currentLogtimeSeconds * 1000);
   const leavingTime = new Date(now + remainingSeconds * 1000);
 
   return {
@@ -143,7 +142,6 @@ export function calculateGoalTimes(currentLogtimeSeconds: number, goalHours: num
     remainingSeconds,
     goalReached,
     remainingTimeString: formatDuration(remainingSeconds),
-    arrivedTime,
     leavingTime,
   };
 }

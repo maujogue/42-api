@@ -28,8 +28,21 @@ export interface User {
   location: string | null;
   image: {
     link: string;
+    versions?: {
+      large?: string;
+      medium?: string;
+      small?: string;
+      micro?: string;
+    };
   };
   url: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string | null;
+  pool_year?: string | null;
+  pool_month?: string | null;
+  correction_point?: number;
 }
 
 /**

@@ -1,39 +1,156 @@
-import { List, ActionPanel, Action, getPreferenceValues, Icon, openExtensionPreferences } from "@raycast/api";
-import { useState } from "react";
-import { useUser } from "./hooks";
-import { Preferences } from "./lib/types";
+import {
+  Grid,
+  Detail,
+  ActionPanel,
+  Action,
+  getPreferenceValues,
+  Icon,
+  openExtensionPreferences,
+  LocalStorage,
+  Color,
+} from "@raycast/api";
+import { useState, useEffect, useMemo } from "react";
+import { useUsers, usePinnedUsers, useLocationStats, SearchMode } from "./hooks";
+import { Preferences, User } from "./lib/types";
+
+const PINNED_USERS_KEY = "pinned-users";
+const PINNED_USERS_CACHE_KEY = "pinned-users-cache";
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
-  const [queryText, setQueryText] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("login");
+  const [pinnedUserLogins, setPinnedUserLogins] = useState<string[]>([]);
+  const [pinnedUsersCache, setPinnedUsersCache] = useState<Record<string, User>>({});
+  const [isLoadingPinned, setIsLoadingPinned] = useState(true);
 
   const preferences = getPreferenceValues<Preferences>();
   const debugMode = preferences.debugMode || false;
 
-  const { user, isLoading, error, isAuthenticated, isAuthenticating, authenticate } = useUser(queryText, {
-    execute: queryText.length > 0,
+  // Load pinned users and cache from LocalStorage
+  useEffect(() => {
+    async function loadPinnedUsers() {
+      try {
+        const stored = await LocalStorage.getItem<string>(PINNED_USERS_KEY);
+        if (stored) {
+          setPinnedUserLogins(JSON.parse(stored));
+        }
+
+        const cachedData = await LocalStorage.getItem<string>(PINNED_USERS_CACHE_KEY);
+        if (cachedData) {
+          setPinnedUsersCache(JSON.parse(cachedData));
+        }
+      } catch (error) {
+        if (debugMode) {
+          console.error("Failed to load pinned users:", error);
+        }
+      } finally {
+        setIsLoadingPinned(false);
+      }
+    }
+    loadPinnedUsers();
+  }, []);
+
+  // Save pinned users to LocalStorage
+  async function savePinnedUsers(logins: string[]) {
+    try {
+      await LocalStorage.setItem(PINNED_USERS_KEY, JSON.stringify(logins));
+      setPinnedUserLogins(logins);
+    } catch (error) {
+      if (debugMode) {
+        console.error("Failed to save pinned users:", error);
+      }
+    }
+  }
+
+  // Cache a user's data
+  async function cacheUser(user: User) {
+    try {
+      const newCache = { ...pinnedUsersCache, [user.login]: user };
+      await LocalStorage.setItem(PINNED_USERS_CACHE_KEY, JSON.stringify(newCache));
+      setPinnedUsersCache(newCache);
+    } catch (error) {
+      if (debugMode) {
+        console.error("Failed to cache user:", error);
+      }
+    }
+  }
+
+  // Remove user from cache
+  async function removeCachedUser(login: string) {
+    try {
+      const newCache = { ...pinnedUsersCache };
+      delete newCache[login];
+      await LocalStorage.setItem(PINNED_USERS_CACHE_KEY, JSON.stringify(newCache));
+      setPinnedUsersCache(newCache);
+    } catch (error) {
+      if (debugMode) {
+        console.error("Failed to remove cached user:", error);
+      }
+    }
+  }
+
+  const { users, isLoading, error, isAuthenticated, isAuthenticating, authenticate } = useUsers(searchText, {
+    execute: searchText.length > 0,
+    searchMode,
   });
+
+  // Fetch pinned users only if not in cache
+  const uncachedLogins = useMemo(() => {
+    return pinnedUserLogins.filter((login) => !pinnedUsersCache[login]);
+  }, [pinnedUserLogins, pinnedUsersCache]);
+
+  const { users: fetchedPinnedUsers, isLoading: isLoadingPinnedUsers } = usePinnedUsers(uncachedLogins, {
+    execute: searchText.length === 0 && uncachedLogins.length > 0,
+  });
+
+  // Update cache when new pinned users are fetched
+  useEffect(() => {
+    if (fetchedPinnedUsers && fetchedPinnedUsers.length > 0) {
+      fetchedPinnedUsers.forEach((user) => {
+        if (!pinnedUsersCache[user.login]) {
+          cacheUser(user);
+        }
+      });
+    }
+  }, [fetchedPinnedUsers]);
+
+  // Combine cached and fetched pinned users
+  const pinnedUsers = useMemo(() => {
+    const cached = pinnedUserLogins.map((login) => pinnedUsersCache[login]).filter(Boolean);
+    return cached;
+  }, [pinnedUserLogins, pinnedUsersCache]);
+
+  // Determine which users to display
+  const displayUsers = useMemo(() => {
+    if (searchText.length > 0) {
+      return users || [];
+    }
+    return pinnedUsers;
+  }, [searchText, users, pinnedUsers]);
 
   // Log errors in debug mode
   if (debugMode && error) {
     console.error("API Error:", error);
   }
 
-  function handleSearch(text: string) {
-    setSearchText(text);
-    if (text.endsWith("\n")) {
-      performSearch();
+  function togglePin(user: User) {
+    const isCurrentlyPinned = pinnedUserLogins.includes(user.login);
+
+    if (isCurrentlyPinned) {
+      // Unpinning: remove from list and cache
+      const newPinned = pinnedUserLogins.filter((l) => l !== user.login);
+      savePinnedUsers(newPinned);
+      removeCachedUser(user.login);
+    } else {
+      // Pinning: add to list and cache the user data
+      const newPinned = [...pinnedUserLogins, user.login];
+      savePinnedUsers(newPinned);
+      cacheUser(user);
     }
   }
 
-  async function performSearch() {
-    if (!searchText.trim()) return;
-
-    if (!isAuthenticated && !isAuthenticating) {
-      await authenticate();
-    }
-
-    setQueryText(searchText.trim());
+  function isPinned(login: string): boolean {
+    return pinnedUserLogins.includes(login);
   }
 
   function getErrorDetails() {
@@ -55,46 +172,51 @@ export default function Command() {
     }
 
     return {
-      title: "User Not Found",
-      description: "No user was found with that login. Please check the username and try again.",
+      title: "Error",
+      description: errorMessage,
       actions: (
         <ActionPanel>
-          <Action title="Try Search Again" onAction={performSearch} icon={Icon.RotateClockwise} />
+          <Action title="Try Again" onAction={() => setSearchText("")} icon={Icon.RotateClockwise} />
         </ActionPanel>
       ),
     };
   }
 
+  const isLoadingState = isLoading || isAuthenticating || isLoadingPinned || isLoadingPinnedUsers;
+
   return (
-    <List
-      onSearchTextChange={handleSearch}
-      searchBarPlaceholder="Enter 42 login (e.g., jdoe) and press Enter"
+    <Grid
+      onSearchTextChange={setSearchText}
+      searchBarPlaceholder={
+        searchMode === "login"
+          ? "Search users by login (prefix)..."
+          : searchMode === "first_name"
+            ? "Search users by first name (exact)..."
+            : "Search users by last name (exact)..."
+      }
       throttle
-      isLoading={isLoading}
+      isLoading={isLoadingState}
+      columns={5}
       searchBarAccessory={
-        <ActionPanel>
-          <Action
-            title="Search"
-            onAction={performSearch}
-            icon={Icon.MagnifyingGlass}
-            shortcut={{ modifiers: [], key: "return" }}
-          />
-          <Action.OpenInBrowser
-            url="https://meta.intra.42.fr/clusters"
-            title="Open Cluster Map"
-            shortcut={{ modifiers: ["shift"], key: "return" }}
-          />
-        </ActionPanel>
+        <Grid.Dropdown
+          tooltip="Search Mode"
+          value={searchMode}
+          onChange={(value) => setSearchMode(value as SearchMode)}
+        >
+          <Grid.Dropdown.Item title="Login (Prefix)" value="login" icon={Icon.AtSymbol} />
+          <Grid.Dropdown.Item title="First Name (Exact)" value="first_name" icon={Icon.Person} />
+          <Grid.Dropdown.Item title="Last Name (Exact)" value="last_name" icon={Icon.TwoPeople} />
+        </Grid.Dropdown>
       }
     >
       {isAuthenticating ? (
-        <List.EmptyView
+        <Grid.EmptyView
           title="Authenticating..."
           description="Please complete the OAuth flow to continue"
           icon={Icon.Lock}
         />
       ) : !isAuthenticated ? (
-        <List.EmptyView
+        <Grid.EmptyView
           title="Authentication Required"
           description="Please complete the OAuth flow to use this extension"
           icon={Icon.Lock}
@@ -105,61 +227,158 @@ export default function Command() {
             </ActionPanel>
           }
         />
+      ) : isLoadingState ? (
+        <Grid.EmptyView title="Loading..." description="Please wait..." />
       ) : error ? (
-        <List.EmptyView
+        <Grid.EmptyView
           title={getErrorDetails()?.title || "Error"}
           description={getErrorDetails()?.description || "An unknown error occurred"}
           icon={Icon.ExclamationMark}
           actions={getErrorDetails()?.actions}
         />
-      ) : !queryText ? (
-        <List.EmptyView
-          title="Enter a 42 login to search"
-          description="Type a 42 username in the search field above and press Enter"
-          icon={Icon.MagnifyingGlass}
-          actions={
-            <ActionPanel>
-              <Action
-                title="Search"
-                onAction={performSearch}
-                icon={Icon.MagnifyingGlass}
-                shortcut={{ modifiers: [], key: "return" }}
-              />
-              <Action.OpenInBrowser
-                url="https://meta.intra.42.fr/clusters"
-                title="Open Cluster Map"
-                shortcut={{ modifiers: ["shift"], key: "return" }}
-              />
-            </ActionPanel>
-          }
+      ) : searchText.length === 0 && pinnedUserLogins.length === 0 ? (
+        <Grid.EmptyView
+          title="No Pinned Users"
+          description="Search for users or pin your favorites to see them here"
+          icon={Icon.Star}
         />
-      ) : !user ? (
-        <List.EmptyView title="Loading..." description="Fetching user information" icon={Icon.Clock} />
+      ) : displayUsers.length === 0 ? (
+        <Grid.EmptyView title="No Users Found" description="Try a different search term" icon={Icon.MagnifyingGlass} />
       ) : (
-        <List.Section title="User Information">
-          <List.Item
-            title={user.login}
-            subtitle="Username"
-            icon={{ source: user.image.link }}
-            accessories={[{ text: "View Profile", icon: Icon.Link }]}
-            actions={
-              <ActionPanel>
-                <Action.OpenInBrowser url={`https://profile.intra.42.fr/users/${user.login}`} title="Open Profile" />
-                <Action.OpenInBrowser
-                  url="https://meta.intra.42.fr/clusters"
-                  title="Open Cluster Map"
-                  shortcut={{ modifiers: ["shift"], key: "return" }}
-                />
-              </ActionPanel>
-            }
-          />
-          <List.Item
-            title={user.location ? user.location : "Not currently logged in"}
-            subtitle="Location"
+        <Grid.Section title={searchText ? "Search Results" : "Pinned Users"}>
+          {displayUsers.map((user) => (
+            <Grid.Item
+              key={user.id}
+              content={user.image.versions?.medium || user.image.link}
+              title={user.login}
+              subtitle={user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : undefined}
+              accessory={
+                isPinned(user.login)
+                  ? { icon: Icon.Star, tooltip: "Pinned" }
+                  : { icon: user.location ? Icon.Pin : Icon.Logout, tooltip: user.location || "Offline" }
+              }
+              actions={
+                <ActionPanel>
+                  <Action.Push
+                    title="View Details"
+                    icon={Icon.Eye}
+                    target={<UserDetail user={user} isPinned={isPinned(user.login)} onTogglePin={togglePin} />}
+                  />
+                  <Action.OpenInBrowser
+                    url={`https://profile.intra.42.fr/users/${user.login}`}
+                    title="Open Profile"
+                    shortcut={{ modifiers: ["cmd"], key: "o" }}
+                  />
+                  <Action
+                    title={isPinned(user.login) ? "Unpin User" : "Pin User"}
+                    icon={isPinned(user.login) ? Icon.StarDisabled : Icon.Star}
+                    onAction={() => togglePin(user)}
+                    shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </Grid.Section>
+      )}
+    </Grid>
+  );
+}
+
+interface UserDetailProps {
+  user: User;
+  isPinned: boolean;
+  onTogglePin: (user: User) => void;
+}
+
+function UserDetail({ user, isPinned, onTogglePin }: UserDetailProps) {
+  // Get today's date range
+  const today = new Date();
+  const beginAt = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+  const endAt = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+
+  const { stats, isLoading } = useLocationStats(user.id, {
+    dateRange: { beginAt, endAt },
+    execute: true,
+  });
+
+  // Calculate today's logtime
+  const todayLogtime = useMemo(() => {
+    if (!stats) return "N/A";
+    const todayKey = today.toISOString().split("T")[0];
+    const timeString = stats[todayKey];
+    if (!timeString) return "0h 0m";
+
+    // Parse time string (format: "HH:MM:SS.microseconds")
+    const parts = timeString.split(":");
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    return `${hours}h ${minutes}m`;
+  }, [stats]);
+
+  // Build markdown content
+  const markdown = `
+![Profile Picture](${user.image.versions?.medium || user.image.link})
+`;
+
+  return (
+    <Detail
+      isLoading={isLoading}
+      markdown={markdown}
+      navigationTitle={user.login}
+      metadata={
+        <Detail.Metadata>
+          {user.first_name && user.last_name && (
+            <Detail.Metadata.Label title="Full Name" text={`${user.first_name} ${user.last_name} (${user.login})`} />
+          )}
+          <Detail.Metadata.Label
+            title="Location"
+            text={{
+              value: user.location || "Offline",
+              color: user.location ? Color.Green : Color.PrimaryText,
+            }}
             icon={user.location ? Icon.Pin : Icon.Logout}
           />
-        </List.Section>
-      )}
-    </List>
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Label title="Logtime Today" text={todayLogtime} icon={Icon.Clock} />
+          {user.correction_point !== undefined && (
+            <Detail.Metadata.Label
+              title="Correction Points"
+              text={user.correction_point.toString()}
+              icon={Icon.Coins}
+            />
+          )}
+          <Detail.Metadata.Separator />
+          {user.pool_year && user.pool_month && (
+            <Detail.Metadata.Label title="Pool" text={`${user.pool_month} ${user.pool_year}`} icon={Icon.Calendar} />
+          )}
+          <Detail.Metadata.Separator />
+          {user.email && <Detail.Metadata.Label title="Email" text={user.email} />}
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.TagList title="Status">
+            <Detail.Metadata.TagList.Item
+              text={isPinned ? "Pinned" : "Not Pinned"}
+              color={isPinned ? "#FFD700" : undefined}
+            />
+          </Detail.Metadata.TagList>
+        </Detail.Metadata>
+      }
+      actions={
+        <ActionPanel>
+          <Action.OpenInBrowser
+            url={`https://profile.intra.42.fr/users/${user.login}`}
+            title="Open Profile"
+            shortcut={{ modifiers: ["cmd"], key: "o" }}
+          />
+          <Action
+            title={isPinned ? "Unpin User" : "Pin User"}
+            icon={isPinned ? Icon.StarDisabled : Icon.Star}
+            onAction={() => onTogglePin(user)}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+          />
+        </ActionPanel>
+      }
+    />
   );
 }
