@@ -1,7 +1,6 @@
 import { getPreferenceValues, LocalStorage, showToast, Toast } from "@raycast/api";
 import { TOKEN_EXPIRY_BUFFER } from "./constants";
 
-
 interface TokenData {
   access_token: string;
   expires_in: number;
