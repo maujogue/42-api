@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
-  "name": "4ty2-api",
+  "name": "42-api",
   "title": "42 Api Tools",
   "description": "Track your logtime and find peers in 42 school clusters directly from Raycast",
   "icon": "41.png",
